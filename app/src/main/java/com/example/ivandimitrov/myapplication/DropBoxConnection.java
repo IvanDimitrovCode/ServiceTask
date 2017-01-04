@@ -27,6 +27,7 @@ public class DropBoxConnection extends AsyncTask<String, String, String> {
     private static final String ACCESS_TOKEN = "ZXhz50v7KsAAAAAAAAAADmTbW-e_UBCDw4KY_16Z7VcI2G0WoMi7bBbiqLjV04Rm";
     private ArrayList<File>      mFileList;
     private FileReceivedListener listener;
+    private int itemIndex = 0;
 
     DropBoxConnection(FileReceivedListener listener, ArrayList<File> mFileList) {
         this.listener = listener;
@@ -40,11 +41,23 @@ public class DropBoxConnection extends AsyncTask<String, String, String> {
         DbxClientV2 client = new DbxClientV2(config, ACCESS_TOKEN);
 
         for (int i = 0; i < mFileList.size(); i++) {
-            try (InputStream in = new FileInputStream(mFileList.get(i))) {
+            InputStream in = null;
+            try {
+                in = new FileInputStream(mFileList.get(i));
                 FileMetadata metadata = client.files().uploadBuilder("/" + mFileList.get(i).getName()).uploadAndFinish(in);
             } catch (Exception e) {
                 e.printStackTrace();
+            } finally {
+                try {
+                    if (in != null) {
+                        in.close();
+                    }
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
             }
+            itemIndex++;
+            publishProgress();
         }
         return null;
     }
@@ -52,13 +65,16 @@ public class DropBoxConnection extends AsyncTask<String, String, String> {
     @Override
     protected void onPostExecute(String s) {
         super.onPostExecute(s);
-//        listener.onFileReceived(mFileList);
     }
 
-
+    @Override
+    protected void onProgressUpdate(String... values) {
+        super.onProgressUpdate(values);
+        listener.onFileReceived(itemIndex);
+    }
 
     interface FileReceivedListener {
-        void onFileReceived(ArrayList<File> mFileList);
+        void onFileReceived(int itemIndex);
     }
 
 }

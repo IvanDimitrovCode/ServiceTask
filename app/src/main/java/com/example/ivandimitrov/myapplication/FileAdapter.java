@@ -3,7 +3,7 @@ package com.example.ivandimitrov.myapplication;
 import android.app.Activity;
 import android.graphics.Color;
 import android.graphics.drawable.ColorDrawable;
-import android.support.annotation.NonNull;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -29,9 +29,9 @@ public class FileAdapter extends ArrayAdapter<File> {
         inflater = (LayoutInflater.from(activity));
     }
 
-    @NonNull
     @Override
     public View getView(int position, View view, ViewGroup parent) {
+        Log.d("ADAPTER", "in");
         view = inflater.inflate(R.layout.list_node, null);
         final CheckedTextView simpleCheckedTextView = (CheckedTextView) view.findViewById(R.id.file_name);
         final int positionFinal = position;
@@ -51,6 +51,7 @@ public class FileAdapter extends ArrayAdapter<File> {
             }
         });
         simpleCheckedTextView.setText(files.get(position).getName());
+
         return view;
     }
 }
