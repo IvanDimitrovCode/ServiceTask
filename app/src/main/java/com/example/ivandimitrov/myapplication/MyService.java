@@ -4,6 +4,8 @@ import android.app.Notification;
 import android.app.PendingIntent;
 import android.app.Service;
 import android.content.Intent;
+import android.os.AsyncTask;
+import android.os.Build;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.Message;
@@ -14,6 +16,8 @@ import android.util.Log;
 
 import java.io.File;
 import java.util.ArrayList;
+import java.util.LinkedList;
+import java.util.Queue;
 
 /**
  * Created by Ivan Dimitrov on 1/3/2017.
@@ -25,16 +29,19 @@ public class MyService extends Service implements DropBoxConnection.FileReceived
     static final int MSG_SET_INT_VALUE     = 3;
     static final int MSG_SET_STRING_VALUE  = 4;
 
-    static final int MAX_THREADS = 2;
+    static final int MAX_THREADS = 5;
 
     private static boolean isRunning = false;
 
-    ArrayList<DropBoxConnection> mThreadPool = new ArrayList<>();
+    private ArrayList<DropBoxConnection> mThreadPool    = new ArrayList<>();
+    private ArrayList<Messenger>         mClients       = new ArrayList<>();
+    private Queue<File>                  mSelectedFiles = new LinkedList<>();
 
-    private ArrayList<Messenger> mClients = new ArrayList<Messenger>();
     private int mProgressStep;
     private int mCurrentProgress = 0;
     private int mListSize;
+
+    private final Object LOCK = new Object();
 
     private DropBoxConnection.FileReceivedListener mListener;
     final Messenger mMessenger = new Messenger(new IncomingHandler());
@@ -87,15 +94,14 @@ public class MyService extends Service implements DropBoxConnection.FileReceived
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
         ArrayList<String> list = intent.getExtras().getStringArrayList("data");
-        ArrayList<File> selectedFiles = new ArrayList<>();
         mListener = this;
         startForeground();
         for (String path : list) {
-            selectedFiles.add(new File(path));
+            mSelectedFiles.add(new File(path));
         }
-        mProgressStep = 100 / selectedFiles.size();
-        mListSize = selectedFiles.size();
-        new DropBoxConnection(mListener, selectedFiles).execute("");
+        mProgressStep = 100 / mSelectedFiles.size();
+        mListSize = mSelectedFiles.size();
+        startWorkingThreads();
         return START_REDELIVER_INTENT; // run until explicitly stopped.
     }
 
@@ -104,6 +110,19 @@ public class MyService extends Service implements DropBoxConnection.FileReceived
         super.onDestroy();
         Log.d("DESTROY", "destroyed");
         isRunning = false;
+    }
+
+    private void startWorkingThreads() {
+        for (int i = 0; i < MAX_THREADS; i++) {
+            mThreadPool.add(new DropBoxConnection(mListener, i));
+        }
+        for (DropBoxConnection thread : mThreadPool) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB) {
+                thread.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
+            } else {
+                thread.execute("");
+            }
+        }
     }
 
     private void startForeground() {
@@ -123,16 +142,33 @@ public class MyService extends Service implements DropBoxConnection.FileReceived
         startForeground(ID, notification);
     }
 
+    private boolean isThreadPoolFinished() {
+        for (DropBoxConnection thread : mThreadPool) {
+            if (thread.isRunning()) {
+                return false;
+            }
+        }
+        return true;
+    }
+
     @Override
-    public void onFileReceived(int itemIndex) {
-        if (itemIndex == mListSize) {
-            sendMessageToUI(100);
-            isRunning = false;
-            stopSelf();
+    public synchronized File onTaskFinished(DropBoxConnection currentThread) {
+        if (mSelectedFiles.isEmpty()) {
+            currentThread.stopThread();
+            if (isThreadPoolFinished()) {
+                sendMessageToUI(100);
+                stopSelf();
+            }
+            return null;
         } else {
             mCurrentProgress += mProgressStep;
             sendMessageToUI(mCurrentProgress);
+            return getNextFile();
         }
+    }
+
+    private File getNextFile() {
+        return mSelectedFiles.poll();
     }
 
     public static boolean isRunning() {

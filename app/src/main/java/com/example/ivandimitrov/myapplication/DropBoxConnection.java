@@ -1,6 +1,7 @@
 package com.example.ivandimitrov.myapplication;
 
 import android.os.AsyncTask;
+import android.util.Log;
 
 import com.dropbox.core.DbxRequestConfig;
 import com.dropbox.core.v2.DbxClientV2;
@@ -20,25 +21,26 @@ public class DropBoxConnection extends AsyncTask<String, String, String> {
 
     private static final String ACCESS_TOKEN = "ZXhz50v7KsAAAAAAAAAADmTbW-e_UBCDw4KY_16Z7VcI2G0WoMi7bBbiqLjV04Rm";
 
-    private ArrayList<File>      mFileList;
     private FileReceivedListener mListener;
-    private int mItemIndex = 0;
+    private int                  threadNumber;
+    private boolean              isRunning;
 
-    DropBoxConnection(FileReceivedListener listener, ArrayList<File> mFileList) {
+    DropBoxConnection(FileReceivedListener listener, int threadNumber) {
+        this.threadNumber = threadNumber;
         this.mListener = listener;
-        this.mFileList = mFileList;
     }
 
     @Override
     protected String doInBackground(String... strings) {
         DbxRequestConfig config = new DbxRequestConfig("dropbox/Apps/ServiceTask");
         DbxClientV2 client = new DbxClientV2(config, ACCESS_TOKEN);
-
-        for (int i = 0; i < mFileList.size(); i++) {
+        File mFileForUpload;
+        isRunning = true;
+        while ((mFileForUpload = mListener.onTaskFinished(this)) != null) {
             InputStream in = null;
             try {
-                in = new FileInputStream(mFileList.get(i));
-                FileMetadata metadata = client.files().uploadBuilder("/" + mFileList.get(i).getName()).uploadAndFinish(in);
+                in = new FileInputStream(mFileForUpload);
+                FileMetadata metadata = client.files().uploadBuilder("/" + mFileForUpload.getName()).uploadAndFinish(in);
             } catch (Exception e) {
                 e.printStackTrace();
             } finally {
@@ -50,9 +52,10 @@ public class DropBoxConnection extends AsyncTask<String, String, String> {
                     e.printStackTrace();
                 }
             }
-            mItemIndex++;
+            Log.d("THREAD", "" + threadNumber);
             publishProgress();
         }
+        isRunning = false;
         return null;
     }
 
@@ -64,11 +67,19 @@ public class DropBoxConnection extends AsyncTask<String, String, String> {
     @Override
     protected void onProgressUpdate(String... values) {
         super.onProgressUpdate(values);
-        mListener.onFileReceived(mItemIndex);
+//        mListener.onFileReceived(mItemIndex);
+    }
+
+    public boolean isRunning() {
+        return isRunning;
+    }
+
+    public void stopThread() {
+        isRunning = false;
     }
 
     interface FileReceivedListener {
-        void onFileReceived(int itemIndex);
+        File onTaskFinished(DropBoxConnection currentThread);
     }
 
 }
