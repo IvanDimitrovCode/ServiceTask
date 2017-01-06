@@ -4,7 +4,6 @@ import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.ServiceConnection;
-import android.graphics.Color;
 import android.os.Environment;
 import android.os.Handler;
 import android.os.IBinder;
@@ -26,14 +25,27 @@ import java.util.ArrayList;
 
 public class ServiceTask extends AppCompatActivity {
     private final Messenger mMessenger = new Messenger(new IncomingHandler());
+
     private FileAdapter mAdapter;
     private Messenger   mService;
     private boolean     mIsBound;
     private ProgressBar mProgressBar;
     private Button      mUploadButton;
     private ListView    mFilesView;
+
     private ArrayList<File> mFileList     = new ArrayList<>();
     private ArrayList<File> mSelectedList = new ArrayList<>();
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        if (MyService.isRunning()) {
+            Toast.makeText(this, getString(R.string.serviceRunning), Toast.LENGTH_LONG).show();
+            doBindService();
+        } else {
+            Toast.makeText(this, getString(R.string.serviceNotRunning), Toast.LENGTH_LONG).show();
+        }
+    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -45,6 +57,7 @@ public class ServiceTask extends AppCompatActivity {
         mUploadButton = (Button) findViewById(R.id.button_upload);
 
         mFileList = getListFiles(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS));
+
         mUploadButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
@@ -73,13 +86,17 @@ public class ServiceTask extends AppCompatActivity {
     void doBindService() {
         bindService(new Intent(this, MyService.class), mConnection, Context.BIND_AUTO_CREATE);
         mIsBound = true;
-        Log.d("SERVICE MESSAGE", "Binding.");
+    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+        doUnbindService();
     }
 
     private ServiceConnection mConnection = new ServiceConnection() {
         public void onServiceConnected(ComponentName className, IBinder service) {
             mService = new Messenger(service);
-            Log.d("SERVICE MESSAGE", "Attached.");
             try {
                 Message msg = Message.obtain(null, MyService.MSG_REGISTER_CLIENT);
                 msg.replyTo = mMessenger;
@@ -92,7 +109,6 @@ public class ServiceTask extends AppCompatActivity {
 
         public void onServiceDisconnected(ComponentName className) {
             mService = null;
-            Log.d("SERVICE MESSAGE", "Disconnected.");
         }
     };
 
@@ -104,7 +120,6 @@ public class ServiceTask extends AppCompatActivity {
                     mProgressBar.setProgress(msg.arg1);
                     break;
                 case MyService.MSG_SET_STRING_VALUE:
-                    Log.d("SERVICE MESSAGE", "NEW VALUE");
                     break;
                 default:
                     super.handleMessage(msg);
@@ -130,6 +145,7 @@ public class ServiceTask extends AppCompatActivity {
     private ArrayList<File> getListFiles(File parentDir) {
         ArrayList<File> inFiles = new ArrayList<File>();
         File[] files = parentDir.listFiles();
+
         for (File file : files) {
             if (file.isDirectory()) {
                 inFiles.addAll(getListFiles(file));
@@ -151,6 +167,7 @@ public class ServiceTask extends AppCompatActivity {
                     msg.replyTo = mMessenger;
                     mService.send(msg);
                 } catch (RemoteException e) {
+                    e.printStackTrace();
                     // There is nothing special we need to do if the service has crashed.
                 }
             }

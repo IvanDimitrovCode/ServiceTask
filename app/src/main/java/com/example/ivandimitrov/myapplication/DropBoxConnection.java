@@ -1,16 +1,10 @@
 package com.example.ivandimitrov.myapplication;
 
 import android.os.AsyncTask;
-import android.os.Build;
-import android.os.Environment;
-import android.support.annotation.RequiresApi;
-import android.util.Log;
 
-import com.dropbox.core.DbxException;
 import com.dropbox.core.DbxRequestConfig;
 import com.dropbox.core.v2.DbxClientV2;
 import com.dropbox.core.v2.files.FileMetadata;
-import com.dropbox.core.v2.users.FullAccount;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -25,16 +19,16 @@ import java.util.ArrayList;
 public class DropBoxConnection extends AsyncTask<String, String, String> {
 
     private static final String ACCESS_TOKEN = "ZXhz50v7KsAAAAAAAAAADmTbW-e_UBCDw4KY_16Z7VcI2G0WoMi7bBbiqLjV04Rm";
+
     private ArrayList<File>      mFileList;
-    private FileReceivedListener listener;
-    private int itemIndex = 0;
+    private FileReceivedListener mListener;
+    private int mItemIndex = 0;
 
     DropBoxConnection(FileReceivedListener listener, ArrayList<File> mFileList) {
-        this.listener = listener;
+        this.mListener = listener;
         this.mFileList = mFileList;
     }
 
-    @RequiresApi(api = Build.VERSION_CODES.KITKAT)
     @Override
     protected String doInBackground(String... strings) {
         DbxRequestConfig config = new DbxRequestConfig("dropbox/Apps/ServiceTask");
@@ -56,7 +50,7 @@ public class DropBoxConnection extends AsyncTask<String, String, String> {
                     e.printStackTrace();
                 }
             }
-            itemIndex++;
+            mItemIndex++;
             publishProgress();
         }
         return null;
@@ -70,7 +64,7 @@ public class DropBoxConnection extends AsyncTask<String, String, String> {
     @Override
     protected void onProgressUpdate(String... values) {
         super.onProgressUpdate(values);
-        listener.onFileReceived(itemIndex);
+        mListener.onFileReceived(mItemIndex);
     }
 
     interface FileReceivedListener {

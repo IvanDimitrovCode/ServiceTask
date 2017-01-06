@@ -1,57 +1,40 @@
 package com.example.ivandimitrov.myapplication;
 
-import android.app.Activity;
-import android.app.IntentService;
+import android.app.Notification;
+import android.app.PendingIntent;
 import android.app.Service;
 import android.content.Intent;
-import android.os.Binder;
-import android.os.Bundle;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.Message;
 import android.os.Messenger;
 import android.os.RemoteException;
+import android.support.v4.app.NotificationCompat;
 import android.util.Log;
-import android.widget.ListView;
-import android.widget.Toast;
-
-import com.dropbox.core.DbxException;
-import com.dropbox.core.DbxRequestConfig;
-import com.dropbox.core.v2.DbxClientV2;
-import com.dropbox.core.v2.files.FileMetadata;
-import com.dropbox.core.v2.users.FullAccount;
 
 import java.io.File;
-import java.io.FileInputStream;
-import java.io.IOException;
-import java.io.InputStream;
 import java.util.ArrayList;
-
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.InputStream;
-import java.util.ArrayList;
-import java.util.Random;
-import java.util.Timer;
-import java.util.TimerTask;
 
 /**
  * Created by Ivan Dimitrov on 1/3/2017.
  */
 
 public class MyService extends Service implements DropBoxConnection.FileReceivedListener {
-    private static final String ACCESS_TOKEN = "ZXhz50v7KsAAAAAAAAAADmTbW-e_UBCDw4KY_16Z7VcI2G0WoMi7bBbiqLjV04Rm";
-
     static final int MSG_REGISTER_CLIENT   = 1;
     static final int MSG_UNREGISTER_CLIENT = 2;
     static final int MSG_SET_INT_VALUE     = 3;
     static final int MSG_SET_STRING_VALUE  = 4;
-    static final int MSG_SET_OBJECT_VALUE  = 5;
+
+    static final int MAX_THREADS = 2;
+
+    private static boolean isRunning = false;
+
+    ArrayList<DropBoxConnection> mThreadPool = new ArrayList<>();
 
     private ArrayList<Messenger> mClients = new ArrayList<Messenger>();
-    private int progressStep;
-    private int curretProgress = 0;
-    private int listSize;
+    private int mProgressStep;
+    private int mCurrentProgress = 0;
+    private int mListSize;
 
     private DropBoxConnection.FileReceivedListener mListener;
     final Messenger mMessenger = new Messenger(new IncomingHandler());
@@ -82,6 +65,7 @@ public class MyService extends Service implements DropBoxConnection.FileReceived
     @Override
     public void onCreate() {
         super.onCreate();
+        isRunning = true;
     }
 
 
@@ -105,27 +89,53 @@ public class MyService extends Service implements DropBoxConnection.FileReceived
         ArrayList<String> list = intent.getExtras().getStringArrayList("data");
         ArrayList<File> selectedFiles = new ArrayList<>();
         mListener = this;
+        startForeground();
         for (String path : list) {
             selectedFiles.add(new File(path));
         }
-        progressStep = 100 / selectedFiles.size();
-        listSize = selectedFiles.size();
+        mProgressStep = 100 / selectedFiles.size();
+        mListSize = selectedFiles.size();
         new DropBoxConnection(mListener, selectedFiles).execute("");
-        return START_STICKY; // run until explicitly stopped.
+        return START_REDELIVER_INTENT; // run until explicitly stopped.
     }
 
     @Override
     public void onDestroy() {
         super.onDestroy();
+        Log.d("DESTROY", "destroyed");
+        isRunning = false;
+    }
+
+    private void startForeground() {
+        int ID = 1234;
+        Intent intent = new Intent(this, ServiceTask.class);
+        intent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+        PendingIntent pendIntent = PendingIntent.getActivity(this, 0, intent, 0);
+
+        NotificationCompat.Builder builder = new NotificationCompat.Builder(getBaseContext());
+        builder.setContentIntent(pendIntent);
+        builder.setTicker("CUSTOM MESSAGE");
+        builder.setWhen(System.currentTimeMillis());
+        builder.setAutoCancel(false);
+        builder.setContentTitle("Test Service");
+        builder.setContentText("CUSTOM MESSAGE");
+        Notification notification = builder.build();
+        startForeground(ID, notification);
     }
 
     @Override
     public void onFileReceived(int itemIndex) {
-        if (itemIndex == listSize) {
+        if (itemIndex == mListSize) {
             sendMessageToUI(100);
+            isRunning = false;
+            stopSelf();
         } else {
-            curretProgress += progressStep;
-            sendMessageToUI(curretProgress);
+            mCurrentProgress += mProgressStep;
+            sendMessageToUI(mCurrentProgress);
         }
+    }
+
+    public static boolean isRunning() {
+        return isRunning;
     }
 }
