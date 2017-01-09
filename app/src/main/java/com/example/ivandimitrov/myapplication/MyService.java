@@ -29,7 +29,7 @@ public class MyService extends Service implements DropBoxConnection.FileReceived
     static final int MSG_SET_INT_VALUE     = 3;
     static final int MSG_SET_STRING_VALUE  = 4;
 
-    static final int MAX_THREADS = 5;
+    static final int MAX_THREADS = 6;
 
     private static boolean isRunning = false;
 
@@ -75,11 +75,10 @@ public class MyService extends Service implements DropBoxConnection.FileReceived
         isRunning = true;
     }
 
-
-    private void sendMessageToUI(int intvaluetosend) {
+    private void sendMessageToUI(int valueToSend) {
         for (int i = mClients.size() - 1; i >= 0; i--) {
             try {
-                mClients.get(i).send(Message.obtain(null, MSG_SET_INT_VALUE, intvaluetosend, 0));
+                mClients.get(i).send(Message.obtain(null, MSG_SET_INT_VALUE, valueToSend, 0));
             } catch (RemoteException e) {
                 mClients.remove(i);
             }
@@ -160,11 +159,20 @@ public class MyService extends Service implements DropBoxConnection.FileReceived
                 stopSelf();
             }
             return null;
+        } else if (!isRunning()) {
+            return null;
         } else {
             mCurrentProgress += mProgressStep;
             sendMessageToUI(mCurrentProgress);
             return getNextFile();
         }
+    }
+
+    @Override
+    public void networkConnectionStopped() {
+        Log.d("NOT NETWORK", "NO INTERNET");
+        isRunning = false;
+        stopSelf();
     }
 
     private File getNextFile() {

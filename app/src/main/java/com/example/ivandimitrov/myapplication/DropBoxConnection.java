@@ -4,6 +4,7 @@ import android.os.AsyncTask;
 import android.util.Log;
 
 import com.dropbox.core.DbxRequestConfig;
+import com.dropbox.core.NetworkIOException;
 import com.dropbox.core.v2.DbxClientV2;
 import com.dropbox.core.v2.files.FileMetadata;
 
@@ -33,6 +34,7 @@ public class DropBoxConnection extends AsyncTask<String, String, String> {
     @Override
     protected String doInBackground(String... strings) {
         DbxRequestConfig config = new DbxRequestConfig("dropbox/Apps/ServiceTask");
+
         DbxClientV2 client = new DbxClientV2(config, ACCESS_TOKEN);
         File mFileForUpload;
         isRunning = true;
@@ -41,6 +43,10 @@ public class DropBoxConnection extends AsyncTask<String, String, String> {
             try {
                 in = new FileInputStream(mFileForUpload);
                 FileMetadata metadata = client.files().uploadBuilder("/" + mFileForUpload.getName()).uploadAndFinish(in);
+            } catch (NetworkIOException e) {
+                mListener.networkConnectionStopped();
+                e.printStackTrace();
+                break;
             } catch (Exception e) {
                 e.printStackTrace();
             } finally {
@@ -52,7 +58,6 @@ public class DropBoxConnection extends AsyncTask<String, String, String> {
                     e.printStackTrace();
                 }
             }
-            Log.d("THREAD", "" + threadNumber);
             publishProgress();
         }
         isRunning = false;
@@ -80,6 +85,8 @@ public class DropBoxConnection extends AsyncTask<String, String, String> {
 
     interface FileReceivedListener {
         File onTaskFinished(DropBoxConnection currentThread);
+
+        void networkConnectionStopped();
     }
 
 }

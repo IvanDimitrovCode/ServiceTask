@@ -3,7 +3,9 @@ package com.example.ivandimitrov.myapplication;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.ServiceConnection;
+import android.net.ConnectivityManager;
 import android.os.Environment;
 import android.os.Handler;
 import android.os.IBinder;
@@ -23,8 +25,13 @@ import java.io.File;
 import java.util.ArrayList;
 
 
-public class ServiceTask extends AppCompatActivity {
+public class ServiceTask extends AppCompatActivity implements NetworkStateReceiver.NetworkListener {
     private final Messenger mMessenger = new Messenger(new IncomingHandler());
+
+    private String ACTION = "android.net.conn.CONNECTIVITY_CHANGE";
+
+    private boolean              internetConnection = false;
+    private NetworkStateReceiver receiver           = new NetworkStateReceiver(this);
 
     private FileAdapter mAdapter;
     private Messenger   mService;
@@ -40,10 +47,10 @@ public class ServiceTask extends AppCompatActivity {
     protected void onResume() {
         super.onResume();
         if (MyService.isRunning()) {
-            Toast.makeText(this, getString(R.string.serviceRunning), Toast.LENGTH_LONG).show();
+//            Toast.makeText(this, getString(R.string.serviceRunning), Toast.LENGTH_LONG).show();
             doBindService();
         } else {
-            Toast.makeText(this, getString(R.string.serviceNotRunning), Toast.LENGTH_LONG).show();
+//            Toast.makeText(this, getString(R.string.serviceNotRunning), Toast.LENGTH_LONG).show();
         }
     }
 
@@ -51,6 +58,8 @@ public class ServiceTask extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_service_task);
+
+        registerReceiver(receiver, new IntentFilter(ACTION));
 
         mFilesView = (ListView) findViewById(R.id.files_list);
         mProgressBar = (ProgressBar) findViewById(R.id.progress_bar);
@@ -91,6 +100,7 @@ public class ServiceTask extends AppCompatActivity {
     @Override
     protected void onPause() {
         super.onPause();
+        unregisterReceiver(receiver);
         doUnbindService();
     }
 
@@ -128,11 +138,11 @@ public class ServiceTask extends AppCompatActivity {
     }
 
 
-    private void sendMessageToService(int intvaluetosend) {
+    private void sendMessageToService(int valueToSend) {
         if (mIsBound) {
             if (mService != null) {
                 try {
-                    Message msg = Message.obtain(null, MyService.MSG_SET_INT_VALUE, intvaluetosend, 0);
+                    Message msg = Message.obtain(null, MyService.MSG_SET_INT_VALUE, valueToSend, 0);
                     msg.replyTo = mMessenger;
                     mService.send(msg);
                 } catch (RemoteException e) {
@@ -174,6 +184,16 @@ public class ServiceTask extends AppCompatActivity {
             // Detach our existing connection.
             unbindService(mConnection);
             mIsBound = false;
+        }
+    }
+
+    @Override
+    public void onInternetChanged(boolean internetWorking) {
+        internetConnection = internetWorking;
+        if (internetConnection) {
+            mUploadButton.setEnabled(true);
+        } else {
+            mUploadButton.setEnabled(false);
         }
     }
 }
