@@ -13,13 +13,13 @@
         android:label="@string/app_name"
         android:supportsRtl="true"
         android:theme="@style/AppTheme">
-        <service android:name=".MyService"/>
+        <service android:name=".UploadService"/>
 
         <receiver android:name=".NetworkStateReceiver">
             <action android:name="android.net.conn.CONNECTIVITY_CHANGE"/>
         </receiver>
 
-        <activity android:name=".ServiceTask">
+        <activity android:name=".MainActivity">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>

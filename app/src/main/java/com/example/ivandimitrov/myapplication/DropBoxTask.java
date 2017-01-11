@@ -12,13 +12,12 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.util.ArrayList;
 
 /**
  * Created by Ivan Dimitrov on 12/29/2016.
  */
 
-public class DropBoxConnection extends AsyncTask<String, String, String> {
+public class DropBoxTask extends AsyncTask<String, String, String> {
 
     private static final String ACCESS_TOKEN = "ZXhz50v7KsAAAAAAAAAADmTbW-e_UBCDw4KY_16Z7VcI2G0WoMi7bBbiqLjV04Rm";
 
@@ -26,7 +25,7 @@ public class DropBoxConnection extends AsyncTask<String, String, String> {
     private int                  threadNumber;
     private boolean              isRunning;
 
-    DropBoxConnection(FileReceivedListener listener, int threadNumber) {
+    DropBoxTask(FileReceivedListener listener, int threadNumber) {
         this.threadNumber = threadNumber;
         this.mListener = listener;
     }
@@ -34,11 +33,13 @@ public class DropBoxConnection extends AsyncTask<String, String, String> {
     @Override
     protected String doInBackground(String... strings) {
         DbxRequestConfig config = new DbxRequestConfig("dropbox/Apps/ServiceTask");
-
+        Log.d("THREAD", "START");
         DbxClientV2 client = new DbxClientV2(config, ACCESS_TOKEN);
-        File mFileForUpload;
+        File mFileForUpload = null;
         isRunning = true;
-        while ((mFileForUpload = mListener.onTaskFinished(this)) != null) {
+        while ((mFileForUpload = mListener.onTaskFinished(this, mFileForUpload)) != null) {
+            Log.d("THREAD", "FILE");
+
             InputStream in = null;
             try {
                 in = new FileInputStream(mFileForUpload);
@@ -60,6 +61,7 @@ public class DropBoxConnection extends AsyncTask<String, String, String> {
             }
             publishProgress();
         }
+        Log.d("THREAD", "STOP");
         isRunning = false;
         return null;
     }
@@ -84,9 +86,8 @@ public class DropBoxConnection extends AsyncTask<String, String, String> {
     }
 
     interface FileReceivedListener {
-        File onTaskFinished(DropBoxConnection currentThread);
+        File onTaskFinished(DropBoxTask currentThread, File prevFile);
 
         void networkConnectionStopped();
     }
-
 }

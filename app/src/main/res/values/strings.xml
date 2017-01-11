@@ -1,6 +1,8 @@
 <resources>
     <string name="app_name">My Application</string>
     <string name="buttonUpload">Upload</string>
+    <string name="buttonSelectAll">Select All</string>
+    <string name="buttonDeselectAll">Deselect All</string>
     <string name="serviceRunning">Running service detected</string>
     <string name="serviceNotRunning">No running service detected</string>
 
